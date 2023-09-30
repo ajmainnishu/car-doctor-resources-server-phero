@@ -64,13 +64,63 @@ async function run() {
             res.send(result);
         })
 
-
+        app.get('/userdetails/:status', async (req, res) => {
+            const status = req.params.status;
+            let query = {}
+            if(req.query?.email) {
+                query = {
+                    email: req.query?.email,
+                    status: String(status)
+                }
+            }
+            const options = {
+                projection: {
+                    productImg: 1,
+                    productTitle: 1,
+                    productPrice: 1,
+                    date: 1,
+                    status: 1
+                }
+            }
+            const result = await userCollection.find(query, options).toArray();
+            res.send(result);
+        })
         app.post('/userdetails', async (req, res) => {
             const data = req.body;
             const result = await userCollection.insertOne(data);
             res.send(result);
         })
-
+        app.patch('/userdetails/:id', async (req, res) => {
+            const id = req.params.id;
+            const data = req.body;
+            const query = {_id: new ObjectId(id)};
+            const updateDoc = {
+                $set: {
+                    status: data.status
+                }
+            }
+            const result = await userCollection.updateOne(query, updateDoc);
+            res.send(result);
+        })
+        app.delete('/userdetails/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = {_id: new ObjectId(id)};
+            const result = await userCollection.deleteOne(query);
+            res.send(result);
+        })
+        app.delete('/useralldelete/:status', async (req, res) => {
+            const status = req.params.status;
+            const email = req.query.email;
+            let query = {};
+            if(req.query?.email) {
+                query = {
+                    email: {$regex: email},
+                    status: {$regex: status}
+                }
+            }
+            const result = await userCollection.deleteMany(query);
+            res.send(result);
+        })
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
