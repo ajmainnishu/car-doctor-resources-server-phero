@@ -7,6 +7,7 @@ const port = process.env.PORT || 5000;
 app.use(cors())
 app.use(express.json())
 
+// server link
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.5ffrq.mongodb.net/?retryWrites=true&w=majority`;
 
 const client = new MongoClient(uri, {
@@ -21,18 +22,22 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         await client.connect();
+        // server database connection
         const carDoctorsCollection = client.db('carDoctorsDB').collection('carDoctors');
         const userCollection = client.db('carDoctorsDB').collection('userDetails');
+        // get all services data
         app.get('/services', async (req, res) => {
             const result = await carDoctorsCollection.find().toArray();
             res.send(result);
         })
+        // get specific service data
         app.get('/services/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const result = await carDoctorsCollection.findOne(query);
             res.send(result);
         })
+        // service data post
         app.post('/services', async (req, res) => {
             const data = req.body;
             const doc = {
@@ -63,7 +68,7 @@ async function run() {
             const result = await carDoctorsCollection.insertOne(doc);
             res.send(result);
         })
-
+        // get specific user info
         app.get('/userdetails/:status', async (req, res) => {
             const status = req.params.status;
             let query = {}
@@ -79,17 +84,20 @@ async function run() {
                     productTitle: 1,
                     productPrice: 1,
                     date: 1,
-                    status: 1
+                    status: 1,
+                    email: 1
                 }
             }
             const result = await userCollection.find(query, options).toArray();
             res.send(result);
         })
+        // user info post
         app.post('/userdetails', async (req, res) => {
             const data = req.body;
             const result = await userCollection.insertOne(data);
             res.send(result);
         })
+        // user status update
         app.patch('/userdetails/:id', async (req, res) => {
             const id = req.params.id;
             const data = req.body;
@@ -102,12 +110,14 @@ async function run() {
             const result = await userCollection.updateOne(query, updateDoc);
             res.send(result);
         })
+        // single user info delete
         app.delete('/userdetails/:id', async (req, res) => {
             const id = req.params.id;
             const query = {_id: new ObjectId(id)};
             const result = await userCollection.deleteOne(query);
             res.send(result);
         })
+        // all user delete
         app.delete('/useralldelete/:status', async (req, res) => {
             const status = req.params.status;
             const email = req.query.email;
