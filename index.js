@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 5000;
@@ -18,6 +19,21 @@ const client = new MongoClient(uri, {
     }
 });
 
+const verifyJWT = (req, res, next) => {
+    const authorization = req.headers.authorization;
+    if (!authorization) {
+        return res.status(401).send({ error: true, message: 'unauthorized access' })
+    }
+    const token = authorization.split(' ')[1];
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded) => {
+        if (error) {
+            return res.status(403).send({ error: true, message: 'unauthorized access' })
+        }
+        req.decoded = decoded;
+        next()
+    })
+}
+
 
 async function run() {
     try {
@@ -25,6 +41,14 @@ async function run() {
         // server database connection
         const carDoctorsCollection = client.db('carDoctorsDB').collection('carDoctors');
         const userCollection = client.db('carDoctorsDB').collection('userDetails');
+        // jwt email check
+        app.post('/jwt', async (req, res) => {
+            const userEmail = req.body;
+            const token = jwt.sign(userEmail, process.env.ACCESS_TOKEN_SECRET, {
+                expiresIn: '1h'
+            })
+            res.send({ token })
+        })
         // get all services data
         app.get('/services', async (req, res) => {
             const result = await carDoctorsCollection.find().toArray();
@@ -68,11 +92,15 @@ async function run() {
             const result = await carDoctorsCollection.insertOne(doc);
             res.send(result);
         })
-        // get specific user info
-        app.get('/userdetails/:status', async (req, res) => {
+        // get specific user info and jwt email verify
+        app.get('/userdetails/:status', verifyJWT, async (req, res) => {
             const status = req.params.status;
+            const decoded = req.decoded.email;
+            if (decoded !== req.query?.email) {
+                return res.status(501).send({error: 1, message: 'forbidden access'})
+            }
             let query = {}
-            if(req.query?.email) {
+            if (req.query?.email) {
                 query = {
                     email: req.query?.email,
                     status: String(status)
@@ -101,7 +129,7 @@ async function run() {
         app.patch('/userdetails/:id', async (req, res) => {
             const id = req.params.id;
             const data = req.body;
-            const query = {_id: new ObjectId(id)};
+            const query = { _id: new ObjectId(id) };
             const updateDoc = {
                 $set: {
                     status: data.status
@@ -113,7 +141,7 @@ async function run() {
         // single user info delete
         app.delete('/userdetails/:id', async (req, res) => {
             const id = req.params.id;
-            const query = {_id: new ObjectId(id)};
+            const query = { _id: new ObjectId(id) };
             const result = await userCollection.deleteOne(query);
             res.send(result);
         })
@@ -122,10 +150,10 @@ async function run() {
             const status = req.params.status;
             const email = req.query.email;
             let query = {};
-            if(req.query?.email) {
+            if (req.query?.email) {
                 query = {
-                    email: {$regex: email},
-                    status: {$regex: status}
+                    email: { $regex: email },
+                    status: { $regex: status }
                 }
             }
             const result = await userCollection.deleteMany(query);
